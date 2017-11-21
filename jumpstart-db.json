@@ -1,0 +1,54 @@
+{
+  "books" : {
+    "author" : "string",
+    "book_id" : "string",
+    "title" : "string",
+    "word_count" : "int"
+  },
+  "projects" : {
+    "completedTasks" : "string[]",
+    "deadline" : "Date",
+    "progress" : "int",
+    "project_id" : "string",
+    "tasks" : "string[]",
+    "title" : "string",
+    "type" : "int",
+    "word_count" : "int"
+  },
+  "quotes" : {
+    "quote_id" : "string",
+    "text" : "string"
+  },
+  "settings" : {
+    "data" : "Date",
+    "deadlines" : "boolean",
+    "frequency" : "int",
+    "notification" : "boolean",
+    "prompt" : "boolean",
+    "quotes_notify" : "boolean",
+    "random_time" : "boolean",
+    "uid" : "string",
+    "videos_notify" : "boolean"
+  },
+  "tasks" : {
+    "completed" : "boolean",
+    "deadline" : "Date",
+    "description" : "string",
+    "frequency" : "int",
+    "progress" : "int",
+    "task_id" : "string"
+  },
+  "users" : {
+    "email" : "string",
+    "first_name" : "string",
+    "last_name" : "string",
+    "projects" : "string[]",
+    "uid" : "string"
+  },
+  "videos" : {
+    "description" : "string",
+    "title" : "string",
+    "url" : "string",
+    "video_id" : "string"
+  }
+}
