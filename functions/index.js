@@ -29,7 +29,7 @@ exports.register = functions.https.onRequest((request, response) =>{
   })
     .then(function(userRecord) {
       // See the UserRecord reference doc for the contents of userRecord.
-      console.log("Successfully created new user:", firstName, " ", fastName, "email:", email);  
+      console.log("Successfully created new user:", firstName, " ", lastName, "email:", email);  
       response.status(200).end();      
       // auto login if successful 
       // doLogin(email,password); 
