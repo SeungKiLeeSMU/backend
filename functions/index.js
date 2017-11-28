@@ -74,11 +74,33 @@ exports.login = functions.https.onRequest((request, response) =>{
     response.status(200).end();          
   })
   .catch(function(error) {
-    console.log("Error Logging In:", "Error Code: ", error.code, "Error Message: ", error.message);
+    console.log("Error Logging In:", email, "Error Code: ", error.code, "Error Message: ", error.message);
     response.status(400).end();      
   });
 });
 
+// Name : logout()
+// Type : POST
+// API : https://us-central1-jumpstart-f48ac.cloudfunctions.net/logout
+// Deployed [x]
+// Logged [x]
+// Writes to DB [-]
+// Status : 200 NOT WORKING
+// Note : Need to specify which user is being signedOut
+exports.logout = functions.https.onRequest((request, response) => {
+  // var user = firebase.auth().currentUser;
+  // var checkEmail = user.email;
+  // user.signout()
+  firebase.auth().signOut()
+    .then(function(){
+      console.log("Signed Off ");
+      response.status(200).end();
+    })
+    .catch(function(error) {
+      console.log("Error Logging out ", "Error Code: ", error.code, "Error Message: ", error.message);
+      response.status(400).end();      
+    });
+})
 
 // Name : updateAccountSetting()
 // Type : POST
