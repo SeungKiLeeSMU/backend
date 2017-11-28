@@ -3,17 +3,24 @@
 
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const firebase = require('firebase');
 
+// admin initialization
 admin.initializeApp(functions.config().firebase);
-const ref = admin.database().ref();
+const aref = admin.database().ref();
+// firebase initialization for magic
+firebase.initializeApp(functions.config().firebase);
+const fref = firebase.database().ref();
 
-// Name : Register
+// Name : register()
 // Type : POST
 // API : https://us-central1-jumpstart-f48ac.cloudfunctions.net/register
 // Deployed [o]
 // Logged [o]
 // Writes to DB [o]
-// Status : Working
+// Status : 200 OK
+// Note : + Will update using firebase.auth().functions
+//        + Will update to write to /users/{uid}.value, not uid itself.
 exports.register = functions.https.onRequest((request, response) =>{
   const firstName = request.body.firstName
   const lastName = request.body.lastName
@@ -32,7 +39,7 @@ exports.register = functions.https.onRequest((request, response) =>{
       console.log("Successfully created new user:", firstName, " ", lastName, "email:", email);  
       response.status(200).end();      
       // auto login if successful 
-      // doLogin(email,password); 
+      // login(email, password)
     })
     .catch(function(error) {
       console.log("Error creating new user:", error);
@@ -40,7 +47,7 @@ exports.register = functions.https.onRequest((request, response) =>{
     });  
     
     // Add to DB
-    const newUserRef = ref.child('/users/')
+    const newUserRef = aref.child('/users/')
     return newUserRef.push({
       'email': email,
       'firstName': firstName,
@@ -49,21 +56,20 @@ exports.register = functions.https.onRequest((request, response) =>{
     })
 });
 
-
-// Name : Login
+// Name : login()
 // Type : POST
 // API : https://us-central1-jumpstart-f48ac.cloudfunctions.net/login
 // Deployed [o]
-// Logged [X]
+// Logged [o]
 // Writes to DB [-]
-// Status : 500 Error
+// Status : 200 OK
+// Note : Should prob send token on success?
 exports.login = functions.https.onRequest((request, response) =>{
   const email = request.body.email
   const password = request.body.password
-
-  admin.auth().login(email, password)
+  
+  firebase.auth().signInWithEmailAndPassword(email, password)
   .then(function(userRecord) {
-    // See the UserRecord reference doc for the contents of userRecord.
     console.log("Successfully Logged In:", email);
     response.status(200).end();          
   })
@@ -74,63 +80,30 @@ exports.login = functions.https.onRequest((request, response) =>{
 });
 
 
+// Name : updateAccountSetting()
+// Type : POST
+// API : https://us-central1-jumpstart-f48ac.cloudfunctions.net/{uid}/updateAccountSetting
+// Deployed [x]
+// Logged [x]
+// Writes to DB [x]
+// Status : -
+// Note : Need to make sure exactly what we are updating:
 
 
-
-// function doLogin(email, password) {
-//   admin.auth().login('password', {
-//       email: email,
-//       password: password
-//   });
-// };
-
-// Give 500 error
-// Register -> New Firebase Function
-// exports.register = functions.https.onRequest((request, response) =>{
-//   const firstName = request.body.firstName
-//   const lastName = request.body.lastName
-//   const email = request.body.email
-//   const password = request.body.password
-//   console.log ("email: ", email);
-//   console.log ("rbemail: ", request.body.email);
-//   console.log ("password: ", password);
-//   console.log ("rbpassword: ", request.body.password);
-  
-//   firebase.auth().createUserWithEmailAndPassword(request.body.email, request.body.password)
-//   .catch(function(error) {
-//     console.log("Error creating new user:", error);
-//     response.status(400).end();      
-//   })
-// });
-
-//   let userRecord = admin.auth().createUser({email: email,password: password})
-//   var url = 'user/' + userRecord.uid
-//   const updatedProfile = admin.database().ref(url).set({
-//     "firstName": firstName,
-//     "lastName": lastName,
-//     "email": email,
-//     "password": password
-//   })
-//   console.log("Created a New User", userRecord.uid);
-
-// exports.signup = functions.auth.user().onCreate( event => {
-//   const uid = event.data.uid;
-//   const email = event.data.email;
-//   // const firstName = event.data.firstName;
-//   // const lastName = event.data.lastName;
-//   const newUserRef = ref.child('/users/')
-//   return newUserRef.push({
-//     "email": email
-//   })
-// });
-
-// exports.signin = functions.auth.user().signInWithEmailAndPassword(email, password).catch(function(error) {
-// });
-// auth.createUserWithEmailAndPassword(email, password);
-// auth.signInWithEmailAndPassword(email, password);
-// auth.onAuthStateChanged(firebaseUser => { });
-
-// Sample
-// exports.helloWorld = functions.https.onRequest((request, response) => {
-//  response.send("Hello from Firebase!");
-// });
+// Name : createProject()
+// Type : POST
+// API : https://us-central1-jumpstart-f48ac.cloudfunctions.net/{uid}/createProject
+// Deployed [X]
+// Logged [X]
+// Writes to DB [X]
+// Status : build a new project with 
+// ["project": {
+//   "project_id" : "string",
+//   "tasks" : "string[]",
+//   "title" : "string",
+//   "type" : "int",
+//   "word_count" : "int",
+//   "deadline" : "Date",
+//   "progress" : "int",
+//   "subprojects" : "string[]"
+// }]
