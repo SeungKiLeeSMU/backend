@@ -1,3 +1,5 @@
+import { user } from 'firebase-functions/lib/providers/auth';
+
 // Create and Deploy Your First Cloud Functions
 // https://firebase.google.com/docs/functions/write-firebase-functions
 
@@ -52,7 +54,8 @@ exports.register = functions.https.onRequest((request, response) =>{
       'email': email,
       'firstName': firstName,
       'password': password,
-      'lastName': lastName
+      'lastName': lastName,
+      'projects': []
     })
 });
 
@@ -160,10 +163,67 @@ exports.updateAccountSetting = functions.https.onRequest((request, response) =>{
 
     // Write to DB
     const updateUserRef = aref.child(`/users/{$uid}`)
-    return updateUserRef.push({
+    return updateUserRef.set({
       'email': newEmail,
       'firstName': newFirstName,
       'password': newPassword,
       'lastName': newLastName
     })
+})
+
+// Name : createProject()
+// Type : POST
+// API : https://us-central1-jumpstart-f48ac.cloudfunctions.net/{id}/createProject
+// Deployed [x]
+// Logged [x]
+// Writes to DB [x]
+// Status : -
+// Note : -
+
+
+// "projects" : {
+//   "completedTasks" : "string[]",
+//   "deadline" : "Date",
+//   "progress" : "int",
+//   "project_id" : "string",
+//   "subprojects" : "string[]",
+//   "title" : "string",
+//   "type" : "int",
+//   "word_count" : "int"
+// },
+
+exports.createProject = functions.https.onRequest((request, response) =>{
+// check for user
+
+
+  // create project tied to uid
+
+  const completedTasks = [];
+  const deadline = request.body.deadline;
+  const progress = 0;
+  const title = request.body.title;
+  const subproject = [];
+  const type = request.body.type;
+  const word_count = 0;
+  const time_created = new Date();
+
+  // make unique project_id
+  const project_id = concat(request.body.title, time_created.toString())
+
+  const newProject = {
+    deadline,
+    progress,
+    project_id,
+    subproject,
+    title,
+    type,
+    project_id,
+    word_count
+  }
+
+// write to db -> add the project_id to the list in users table
+  const newUserRef = aref.child(`/users/{$uid}/projects`)
+  return newUserRef.push({
+    'project': project_id
+  })
 })

@@ -1,0 +1,17 @@
+POST Method
+
+1. https://us-central1-jumpstart-f48ac.cloudfunctions.net/register
+
+{
+	"firstName" : "Eve",
+	"lastName" : "Hey",
+	"email" : "ehey@smu.edu",
+	"password" : "pass"
+}
+
+2. https://us-central1-jumpstart-f48ac.cloudfunctions.net/login
+
+{
+	"email": "kgueenan@smu.edu",
+	"password": "thankyouforyourservice"
+}
