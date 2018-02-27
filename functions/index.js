@@ -1,7 +1,4 @@
-import { user } from 'firebase-functions/lib/providers/auth';
-
-// Create and Deploy Your First Cloud Functions
-// https://firebase.google.com/docs/functions/write-firebase-functions
+// import { user } from 'firebase-functions/lib/providers/auth';
 
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
@@ -41,11 +38,13 @@ exports.register = functions.https.onRequest((request, response) =>{
       console.log("Successfully created new user:", firstName, " ", lastName, "email:", email);
       // // auto login if successful 
       // login(email, password)  
-      response.status(200).end();      
+      response.status(200).end();
+      // return response.json();      
     })
     .catch(function(error) {
       console.log("Error creating new user:", error);
-      response.status(400).end();      
+      response.status(400).end();   
+      // return response.json();   
     });  
     
     // Write to DB
@@ -83,7 +82,7 @@ exports.login = functions.https.onRequest((request, response) =>{
 });
 
 // Name : logout()
-// Type : POST
+// Type : GET
 // API : https://us-central1-jumpstart-f48ac.cloudfunctions.net/logout
 // Deployed [o]
 // Logged [o]
@@ -92,6 +91,7 @@ exports.login = functions.https.onRequest((request, response) =>{
 // Note : Current User is null afterwards
 exports.logout = functions.https.onRequest((request, response) => {
 
+  // get the currentlyt logged in user
   const user = firebase.auth().onAuthStateChanged(function(user) {
     if(user){
       firebase.auth().signOut()
@@ -122,6 +122,7 @@ exports.logout = functions.https.onRequest((request, response) => {
 exports.updateAccountSetting = functions.https.onRequest((request, response) =>{
 
     const user = firebase.auth().currentUser;
+    const userId = user.uid;
 
     // check for changed info
     if (request.body.newPassword) {
@@ -162,7 +163,7 @@ exports.updateAccountSetting = functions.https.onRequest((request, response) =>{
     })
 
     // Write to DB
-    const updateUserRef = aref.child(`/users/{$uid}`)
+    const updateUserRef = aref.child(`/users/{$userId}/`)
     return updateUserRef.set({
       'email': newEmail,
       'firstName': newFirstName,
@@ -180,50 +181,109 @@ exports.updateAccountSetting = functions.https.onRequest((request, response) =>{
 // Status : -
 // Note : -
 
-
-// "projects" : {
-//   "completedTasks" : "string[]",
-//   "deadline" : "Date",
-//   "progress" : "int",
-//   "project_id" : "string",
-//   "subprojects" : "string[]",
-//   "title" : "string",
-//   "type" : "int",
-//   "word_count" : "int"
-// },
-
 exports.createProject = functions.https.onRequest((request, response) =>{
-// check for user
-
+// set uid to that of currently logged in user
+const user = firebase.auth().currentUser;
+// assign a user id for now
+// const uid = user.uid;
+// -> Why different UID for db and auth?
+  const userId = "-KzyphA2HeggttUGpQ29";
 
   // create project tied to uid
-
-  const completedTasks = [];
   const deadline = request.body.deadline;
   const progress = 0;
   const title = request.body.title;
-  const subproject = [];
+  const subprojects = [];
+  // 0 = research, 1 = writing, 2 = revision
   const type = request.body.type;
-  const word_count = 0;
-  const time_created = new Date();
-
-  // make unique project_id
-  const project_id = concat(request.body.title, time_created.toString())
 
   const newProject = {
     deadline,
     progress,
-    project_id,
-    subproject,
-    title,
+    subprojects,
     type,
-    project_id,
-    word_count
+    title
+  }
+
+  console.log("Type :  ", type)
+  // for logging
+  if (type === 0) {
+    type_name = "Research"
+  } else if (type === 1) {
+    type_name = "Writing"
+  } else {
+    type_name = "Revision"
+  }
+
+  if(newProject) {
+    console.log("New ", type_name," Project is Created")
+    response.status(200).end()
+    // return response.json()
+  } else {
+    console.log("error")
+    reponse.status(400).end()
+    // return response.json()
   }
 
 // write to db -> add the project_id to the list in users table
-  const newUserRef = aref.child(`/users/{$uid}/projects`)
-  return newUserRef.push({
-    'project': project_id
+  const updateUserRef = aref.child(`/users/${userId}/`)
+  return updateUserRef.push({
+    'projects': newProject
+  })
+})
+
+// Name : createSubproject()
+// Type : POST
+// API : 
+// Deployed [x]
+// Logged [x]
+// Writes to DB [x]
+// Status : -
+// Note : -
+
+exports.createSubproject = functions.https.onRequest((request, response) =>{
+
+// set uid to that of currently logged in user
+// const user = firebase.auth().currentUser;
+// const uid = user.uid;
+// const pid = user.uid.project_id;
+
+// Set fixed uid and pid for testing
+  const userId = "-KzyphA2HeggttUGpQ29"
+  const pid = "-L6O7-DA-O57-803HAKh"
+
+
+  // create project tied to uid
+  const deadline = request.body.deadline;
+  const progress = 0;
+  const title = request.body.title;
+  const task = [];
+  const completedTasks = []
+  const word_count = 0;
+
+  // make unique subproject_id
+  // const subproject_id = concat(request.body.title, pid, time_created.toString())
+
+  const newSubproject = {
+    deadline,
+    progress,
+    task,
+    completedTasks,
+    title,
+    word_count
+  }
+
+  if(newSubproject) {
+    console.log("New Subproject ", title, " is created")
+    response.status(200).end()
+  } else {
+    console.log("error")
+    response.status(400).end()
+  }
+
+// write to db -> add the project_id to the list in users table
+  const updateUserRef = aref.child(`/users/${userId}/${pid}/subprojects`)
+  return updateUserRef.push({
+    'subprojects': newSubproject
   })
 })
