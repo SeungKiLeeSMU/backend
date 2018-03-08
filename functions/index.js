@@ -1,26 +1,13 @@
-// import { user } from 'firebase-functions/lib/providers/auth';
-
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const firebase = require('firebase');
-
-// admin initialization
+// var serviceAccount = require('./service-account.json');
 admin.initializeApp(functions.config().firebase);
 const aref = admin.database().ref();
-// firebase initialization for magic
 firebase.initializeApp(functions.config().firebase);
 const fref = firebase.database().ref();
 
-// Name : register()
-// Type : POST
-// API : https://us-central1-jumpstart-f48ac.cloudfunctions.net/register
-// Deployed [o]
-// Logged [o]
-// Writes to DB [o]
-// Status : 200 OK
-// Note : + use firebase.auth().functions?
-//        + write to /users/{uid}.value, not uid itself.
-//        + Hash PW param?
+// REGISTER
 exports.register = functions.https.onRequest((request, response) =>{
   const firstName = request.body.firstName
   const lastName = request.body.lastName
@@ -34,17 +21,25 @@ exports.register = functions.https.onRequest((request, response) =>{
     lastName: lastName
   })
     .then(function(userRecord) {
-      // See the UserRecord reference doc for the contents of userRecord.
       console.log("Successfully created new user:", firstName, " ", lastName, "email:", email);
-      // // auto login if successful 
-      // login(email, password)  
-      response.status(200).end();
-      // return response.json();      
+      response.status(200).json(200, {'email': email, 'password':password});      
+
+      // // Set the uid
+      // var newuid = userRecord.uid;
+      // // create Token
+      // admin.auth().createCustomToken(newuid)
+      //   .then(function(customToken) {
+          // See the UserRecord reference doc for the contents of userRecord.
+          // console.log("Successfully created new user:", firstName, " ", lastName, "email:", email);
+          // response.status(200).json(200, customToken);      
+        // }).catch(function(error){
+        //   console.log("error: ", error);
+        //   return response.status(400).json(400, 'Error : ', error);
+        // })
     })
     .catch(function(error) {
       console.log("Error creating new user:", error);
-      response.status(400).end();   
-      // return response.json();   
+      return response.status(400).json(400, 'Error ', error);   
     });  
     
     // Write to DB
@@ -58,67 +53,47 @@ exports.register = functions.https.onRequest((request, response) =>{
     })
 });
 
-// Name : login()
-// Type : POST
-// API : https://us-central1-jumpstart-f48ac.cloudfunctions.net/login
-// Deployed [o]
-// Logged [o]
-// Writes to DB [-]
-// Status : 200 OK
-// Note : -
+// LOGIN
 exports.login = functions.https.onRequest((request, response) =>{
   const email = request.body.email
   const password = request.body.password
 
   firebase.auth().signInWithEmailAndPassword(email, password)
   .then(function(userRecord) {
-    console.log("Successfully Logged In:", email);
-    response.status(200).end();          
+    console.log("Successfully Logged In:", userRecord);
+    response.status(200).json(userRecord)
   })
   .catch(function(error) {
     console.log("Error Logging In:", email, "Error Code: ", error.code, "Error Message: ", error.message);
-    response.status(400).end();      
+    response.status(400).json(error);      
   });
 });
 
-// Name : logout()
-// Type : GET
-// API : https://us-central1-jumpstart-f48ac.cloudfunctions.net/logout
-// Deployed [o]
-// Logged [o]
-// Writes to DB [-]
-// Status : 200 OK
-// Note : Current User is null afterwards
+// LOGOUT
 exports.logout = functions.https.onRequest((request, response) => {
-
-  // get the currentlyt logged in user
+  // get the currently logged in user
   const user = firebase.auth().onAuthStateChanged(function(user) {
     if(user){
       firebase.auth().signOut()
       .then(function(){
         console.log("You are signed out!");
         response.status(200).end();
+        return response.json();
       })
       .catch(function(error) {
         console.log("Error Logging out ", "Error Code: ", error.code, "Error Message: ", error.message);
         response.status(400).end();      
+        return response.json();
       });
     } else {
       console.log("No Current User");
-      response.status(200).end();          
+      response.status(200).end();
+      return response.json();          
     }
   });
 })
 
-// Name : updateAccountSetting()
-// Type : PUT
-// API : https://us-central1-jumpstart-f48ac.cloudfunctions.net/{uid}/updateAccountSetting
-// Deployed [o]
-// Logged [x]
-// Writes to DB [o]
-// Status : -
-// Note : Need to make sure exactly what we are updating:
-//        Start by just assigning current info for empty inputs
+// UPDATE ACCOUNT SETTING
 exports.updateAccountSetting = functions.https.onRequest((request, response) =>{
 
     const user = firebase.auth().currentUser;
@@ -172,18 +147,10 @@ exports.updateAccountSetting = functions.https.onRequest((request, response) =>{
     })
 })
 
-// Name : createProject()
-// Type : POST
-// API : https://us-central1-jumpstart-f48ac.cloudfunctions.net/{id}/createProject
-// Deployed [x]
-// Logged [x]
-// Writes to DB [x]
-// Status : -
-// Note : -
-
+// CREATEPROJECT
 exports.createProject = functions.https.onRequest((request, response) =>{
 // set uid to that of currently logged in user
-const user = firebase.auth().currentUser;
+// const user = firebase.auth().currentUser;
 // assign a user id for now
 // const uid = user.uid;
 // -> Why different UID for db and auth?
@@ -217,30 +184,20 @@ const user = firebase.auth().currentUser;
 
   if(newProject) {
     console.log("New ", type_name," Project is Created")
-    response.status(200).end()
-    // return response.json()
+    response.status(200).json('Project is created')
   } else {
     console.log("error")
-    reponse.status(400).end()
-    // return response.json()
+    reponse.status(400).json('Error')
   }
 
 // write to db -> add the project_id to the list in users table
-  const updateUserRef = aref.child(`/users/${userId}/`)
+  const updateUserRef = aref.child(`/users/${userId}/projects/`)
   return updateUserRef.push({
     'projects': newProject
   })
 })
 
-// Name : createSubproject()
-// Type : POST
-// API : 
-// Deployed [x]
-// Logged [x]
-// Writes to DB [x]
-// Status : -
-// Note : -
-
+// CREATESUBPROJECT
 exports.createSubproject = functions.https.onRequest((request, response) =>{
 
 // set uid to that of currently logged in user
@@ -252,7 +209,6 @@ exports.createSubproject = functions.https.onRequest((request, response) =>{
   const userId = "-KzyphA2HeggttUGpQ29"
   const pid = "-L6O7-DA-O57-803HAKh"
 
-
   // create project tied to uid
   const deadline = request.body.deadline;
   const progress = 0;
@@ -260,9 +216,6 @@ exports.createSubproject = functions.https.onRequest((request, response) =>{
   const task = [];
   const completedTasks = []
   const word_count = 0;
-
-  // make unique subproject_id
-  // const subproject_id = concat(request.body.title, pid, time_created.toString())
 
   const newSubproject = {
     deadline,
@@ -282,8 +235,72 @@ exports.createSubproject = functions.https.onRequest((request, response) =>{
   }
 
 // write to db -> add the project_id to the list in users table
-  const updateUserRef = aref.child(`/users/${userId}/${pid}/subprojects`)
+  const updateUserRef = aref.child(`/users/${userId}/${pid}/subprojects/`)
   return updateUserRef.push({
     'subprojects': newSubproject
   })
 })
+
+// CREATETASK
+exports.createTask = functions.https.onRequest((request, response) =>{
+  // set uid to that of currently logged in user
+  // const user = firebase.auth().currentUser;
+  // assign a user id for now
+  // const uid = user.uid;
+  // const pid = user.pid;
+  // const spid = user.pid.spid;
+  // -> Why different UID for db and auth?
+    const userId = "-KzyphA2HeggttUGpQ29";
+    const pid = "-L6O7-DA-O57-803HAKh"
+    const spid = "spid"
+
+  
+    // create task tied to user
+    const deadline = request.body.deadline;
+    const title = request.body.title;
+  
+    const newTask = {
+      deadline,
+      title
+    }
+    
+    if(newTask) {
+      console.log("New Task", title," is Created")
+      response.status(200).end()
+      // return response.json()
+    } else {
+      console.log("error")
+      reponse.status(400).end()
+      // return response.json()
+    }
+  
+  // write to db -> add the project_id to the list in users table
+    const updateUserRef = aref.child(`/users/${userId}/${pid}/${spid}/`)
+    return updateUserRef.push({
+      'tasks': newTask
+    })
+  })
+
+// GETVIDEO
+exports.getvideos = functions.https.onRequest((req, res) => {
+  const videoquery = aref.child('videos').once('value', (snapshot) => {
+    var vidlist = snapshot.val();
+
+    return vidlist.reduce((payload, video) => {
+      const { type } = video;
+      const typeArr = payload[type.toLowerCase()];
+      typeArr.push(video);
+
+      payload[type.toLowerCase()] = typeArr;
+      return payload;
+    }, {
+      research: [],
+      writing: [],
+      revision: []
+    });
+  });
+
+  return videoquery.then((payload) => {
+    return res.json(payload);
+  });
+});
