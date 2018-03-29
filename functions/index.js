@@ -341,6 +341,10 @@ exports.getprojects = functions.https.onRequest((req, res) => {
   const videoquery = pref.orderByChild("key").equalTo(uid).on("child_added", function(snapshot) {
     var vidlist = snapshot.val();
 
+    const projarr = payload[vidlist];
+    projarr.push(vidlist);
+    payload[vidlist] = projarr;
+
     return vidlist.reduce((payload, video) => {
       const { type } = video;
       const typeArr = payload[type.toLowerCase()];
