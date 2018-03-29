@@ -13,44 +13,35 @@ exports.register = functions.https.onRequest((request, response) =>{
   const lastName = request.body.lastName
   const email = request.body.email
   const password = request.body.password
+  const projects = []
 
-  admin.auth().createUser({
+ var authUser = admin.auth().createUser({
     email: email,
     firstName: firstName,
     password: password,
-    lastName: lastName
+    lastName: lastName,
+    projects: projects
   })
     .then(function(userRecord) {
+      var tempId = 'users/'+ userRecord.uid;
+      console.log("TempId: ", tempId);
       console.log("Successfully created new user:", firstName, " ", lastName, "email:", email);
-      response.status(200).json(200, {'email': email, 'password':password});      
-
-      // // Set the uid
-      // var newuid = userRecord.uid;
-      // // create Token
-      // admin.auth().createCustomToken(newuid)
-      //   .then(function(customToken) {
-          // See the UserRecord reference doc for the contents of userRecord.
-          // console.log("Successfully created new user:", firstName, " ", lastName, "email:", email);
-          // response.status(200).json(200, customToken);      
-        // }).catch(function(error){
-        //   console.log("error: ", error);
-        //   return response.status(400).json(400, 'Error : ', error);
-        // })
+      var newUserRef = admin.database().ref(tempId).set({
+        'email': email,
+        'firstName': firstName,
+        'password': password,
+        'lastName': lastName,
+        'projects': []
+      })
+      return response.status(200).json({"email":email, "password": password});
+      // return response.status(200).end();
     })
     .catch(function(error) {
       console.log("Error creating new user:", error);
-      return response.status(400).json(400, 'Error ', error);   
-    });  
-    
-    // Write to DB
-    const newUserRef = aref.child('/users/')
-    return newUserRef.push({
-      'email': email,
-      'firstName': firstName,
-      'password': password,
-      'lastName': lastName,
-      'projects': []
-    })
+      return response.status(400).json(400);
+      // return 400;
+      // return response.status(400).json(400, 'Error ', error);   
+    });
 });
 
 // LOGIN
@@ -61,11 +52,11 @@ exports.login = functions.https.onRequest((request, response) =>{
   firebase.auth().signInWithEmailAndPassword(email, password)
   .then(function(userRecord) {
     console.log("Successfully Logged In:", userRecord);
-    response.status(200).json(userRecord)
+    return response.status(200).json(userRecord)
   })
   .catch(function(error) {
     console.log("Error Logging In:", email, "Error Code: ", error.code, "Error Message: ", error.message);
-    response.status(400).json(error);      
+    return response.status(400).json(error);      
   });
 });
 
@@ -131,14 +122,16 @@ exports.updateAccountSetting = functions.https.onRequest((request, response) =>{
     .then(function(userRecord) {
       console.log("updated user info: ", userRecord.toJSON());
       response.status(200).end();
+      return response.json();
     })
     .catch(function(error){
       console.log("failed to update user info");
       response.status(400).end();
+      return response.json();
     })
 
     // Write to DB
-    const updateUserRef = aref.child(`/users/{$userId}/`)
+    const updateUserRef = aref.child(`/users/${userId}/`)
     return updateUserRef.set({
       'email': newEmail,
       'firstName': newFirstName,
@@ -149,27 +142,24 @@ exports.updateAccountSetting = functions.https.onRequest((request, response) =>{
 
 // CREATEPROJECT
 exports.createProject = functions.https.onRequest((request, response) =>{
-// set uid to that of currently logged in user
-// const user = firebase.auth().currentUser;
-// assign a user id for now
-// const uid = user.uid;
-// -> Why different UID for db and auth?
-  const userId = "-KzyphA2HeggttUGpQ29";
 
   // create project tied to uid
+  const userId = request.body.uid;
   const deadline = request.body.deadline;
   const progress = 0;
   const title = request.body.title;
   const subprojects = [];
   // 0 = research, 1 = writing, 2 = revision
   const type = request.body.type;
+  const key = request.body.uid;
 
   const newProject = {
+    title,
+    type,
     deadline,
     progress,
     subprojects,
-    type,
-    title
+    key
   }
 
   console.log("Type :  ", type)
@@ -190,26 +180,30 @@ exports.createProject = functions.https.onRequest((request, response) =>{
     reponse.status(400).json('Error')
   }
 
-// write to db -> add the project_id to the list in users table
-  const updateUserRef = aref.child(`/users/${userId}/projects/`)
-  return updateUserRef.push({
-    'projects': newProject
-  })
+  // write to db -> add the project_id to the list in users table
+  const projRef = aref.child(`/projects/`)
+  console.log("Pushing to Project Node", newProject)
+  var pushRef = projRef.push({
+    "title": title,
+    "type": type,
+    "deadline": deadline,
+    "progress": progress,
+    "subprojects": subprojects,
+    "key": userId
+  });
+
+  // retrieve random string and push it under user.
+  var projectId = pushRef.key;
+  const userRef = aref.child(`/users/${userId}/projects/`);
+  return pushRef, userRef.push({projectId});
 })
 
 // CREATESUBPROJECT
 exports.createSubproject = functions.https.onRequest((request, response) =>{
 
-// set uid to that of currently logged in user
-// const user = firebase.auth().currentUser;
-// const uid = user.uid;
-// const pid = user.uid.project_id;
-
-// Set fixed uid and pid for testing
-  const userId = "-KzyphA2HeggttUGpQ29"
-  const pid = "-L6O7-DA-O57-803HAKh"
-
   // create project tied to uid
+  // const userId = request.body.uid;
+  const projectId = request.body.pid;
   const deadline = request.body.deadline;
   const progress = 0;
   const title = request.body.title;
@@ -235,33 +229,38 @@ exports.createSubproject = functions.https.onRequest((request, response) =>{
   }
 
 // write to db -> add the project_id to the list in users table
-  const updateUserRef = aref.child(`/users/${userId}/${pid}/subprojects/`)
-  return updateUserRef.push({
-    'subprojects': newSubproject
+  const subProjRef = aref.child(`/subprojects/`)
+  var pushRef= subProjRef.push({
+    "deadline": deadline,
+    "progress": progress,
+    "task": task,
+    "completedTasks": completedTasks,
+    "title": title,
+    "wordcount": word_count
   })
+
+    // retrieve random string and push it under user.
+    var subProjectId = pushRef.key;
+    const projRef = aref.child(`/projects/${projectId}/subprojects/`);
+    return pushRef, projRef.push({subProjectId});
 })
 
 // CREATETASK
 exports.createTask = functions.https.onRequest((request, response) =>{
-  // set uid to that of currently logged in user
-  // const user = firebase.auth().currentUser;
-  // assign a user id for now
-  // const uid = user.uid;
-  // const pid = user.pid;
-  // const spid = user.pid.spid;
-  // -> Why different UID for db and auth?
-    const userId = "-KzyphA2HeggttUGpQ29";
-    const pid = "-L6O7-DA-O57-803HAKh"
-    const spid = "spid"
-
-  
     // create task tied to user
+    const subprojId = request.body.spid;
     const deadline = request.body.deadline;
     const title = request.body.title;
+    // const description = request.body.description;
+    // const progress = 0;
+    // // 0 : daily, 1 : Weekly, 2 : Monthly
+    // const reminder = request.body.reminder;
+    var completed = false;
   
     const newTask = {
       deadline,
-      title
+      title,
+      completed
     }
     
     if(newTask) {
@@ -275,11 +274,22 @@ exports.createTask = functions.https.onRequest((request, response) =>{
     }
   
   // write to db -> add the project_id to the list in users table
-    const updateUserRef = aref.child(`/users/${userId}/${pid}/${spid}/`)
-    return updateUserRef.push({
-      'tasks': newTask
+    const taskRef = aref.child(`/tasks/`)
+    console.log("After Reference")
+    var pushRef = taskRef.push({
+      "deadline": deadline,
+      "title": title,
+      "completed": completed      
     })
-  })
+
+  // console.log("After push")
+  // retrieve random string and push it under user.
+  var taskId = pushRef.key;
+  const subprojRef = aref.child(`/subprojects/${subprojId}/tasks/`);
+  // console.log("Before Return")
+  return pushRef, subprojRef.push({taskId});
+})
+
 
 // GETVIDEO
 exports.getvideos = functions.https.onRequest((req, res) => {
@@ -297,6 +307,49 @@ exports.getvideos = functions.https.onRequest((req, res) => {
       research: [],
       writing: [],
       revision: []
+    });
+  });
+
+  return videoquery.then((payload) => {
+    return res.json(payload);
+  });
+});
+
+// // GETPROJECTS
+// exports.getprojects = functions.https.onRequest((req, res) => {
+//   // Get the User Id
+//   const uid = req.body.uid;
+//   var pref = firebase.database().ref('projects')
+
+//   // Query for projects
+//   return pref.orderByChild("key").equalTo(uid).on("child_added", function(snapshot){
+//     var projlist = snapshot.val()
+//     // add each project object to an array
+//     console.log(typeof projlist, projlist);
+//       // Return the array
+//     return res.status(200).send(projquery);
+//   });
+
+// });
+
+// GETVIDEO
+exports.getprojects = functions.https.onRequest((req, res) => {
+
+  const uid = req.body.uid;
+  var pref = firebase.database().ref('projects')
+
+  const videoquery = pref.orderByChild("key").equalTo(uid).on("child_added", function(snapshot) {
+    var vidlist = snapshot.val();
+
+    return vidlist.reduce((payload, video) => {
+      const { type } = video;
+      const typeArr = payload[type.toLowerCase()];
+      typeArr.push(video);
+
+      payload[type.toLowerCase()] = typeArr;
+      return payload;
+    }, {
+      projArr: []
     });
   });
 
