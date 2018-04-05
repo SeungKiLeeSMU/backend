@@ -1,11 +1,10 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const firebase = require('firebase');
-// var serviceAccount = require('./service-account.json');
 admin.initializeApp(functions.config().firebase);
 const aref = admin.database().ref();
 firebase.initializeApp(functions.config().firebase);
-const fref = firebase.database().ref();
+var fref = firebase.database().ref();
 
 // REGISTER
 exports.register = functions.https.onRequest((request, response) =>{
@@ -315,49 +314,44 @@ exports.getvideos = functions.https.onRequest((req, res) => {
   });
 });
 
-// // GETPROJECTS
-// exports.getprojects = functions.https.onRequest((req, res) => {
-//   // Get the User Id
-//   const uid = req.body.uid;
-//   var pref = firebase.database().ref('projects')
-
-//   // Query for projects
-//   return pref.orderByChild("key").equalTo(uid).on("child_added", function(snapshot){
-//     var projlist = snapshot.val()
-//     // add each project object to an array
-//     console.log(typeof projlist, projlist);
-//       // Return the array
-//     return res.status(200).send(projquery);
-//   });
-
-// });
-
-// GETVIDEO
+// GETPROJECTS
 exports.getprojects = functions.https.onRequest((req, res) => {
-
   const uid = req.body.uid;
-  var pref = firebase.database().ref('projects')
+  var projectref = fref.child('projects');
+  var projarr = [];
 
-  const videoquery = pref.orderByChild("key").equalTo(uid).on("child_added", function(snapshot) {
-    var vidlist = snapshot.val();
+  // Make the promise object
+  const projpromise = projectref.orderByChild('key').equalTo(uid).once('value');
+  // Make another promise for pushing
+  const pushpromise = projpromise.then(snap => {
+    // find the value
+    var proj_item = snap.val();
+    console.log("item: ", snap.val());
+    projarr.push(proj_item);
+    return proj_item;
+  }).catch(reason => {
+    console.log(reason)
+    return res.json(400);
+  })
 
-    const projarr = payload[vidlist];
-    projarr.push(vidlist);
-    payload[vidlist] = projarr;
+  pushpromise.then(snap => {
+    return res.json(projarr);
+  }).catch(reason => {
+    console.log(reason)
+    return res.json(400);
+  })
 
-    return vidlist.reduce((payload, video) => {
-      const { type } = video;
-      const typeArr = payload[type.toLowerCase()];
-      typeArr.push(video);
+});
 
-      payload[type.toLowerCase()] = typeArr;
-      return payload;
-    }, {
-      projArr: []
-    });
+exports.getprojectbyid = functions.https.onRequest((req, res) => {
+  const pid = req.body.pid;
+  var projectref = fref.child('projects');
+  // console.log(projectref.toString());
+
+  var pbyid = projectref.orderByKey().equalTo(pid).limitToFirst(1).on('child_added', function(snap) {
+    var addsnap = snap.val();
+    return addsnap;
   });
-
-  return videoquery.then((payload) => {
-    return res.json(payload);
-  });
+  console.log(pbyid);
+  return res.json(pbyid);
 });
