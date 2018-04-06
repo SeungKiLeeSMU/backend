@@ -1,3 +1,4 @@
+// Globals
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const firebase = require('firebase');
@@ -8,39 +9,41 @@ var fref = firebase.database().ref();
 
 // REGISTER
 exports.register = functions.https.onRequest((request, response) =>{
+  // Read the info from request
   const firstName = request.body.firstName
   const lastName = request.body.lastName
   const email = request.body.email
   const password = request.body.password
   const projects = []
 
- var authUser = admin.auth().createUser({
-    email: email,
-    firstName: firstName,
-    password: password,
-    lastName: lastName,
-    projects: projects
-  })
-    .then(function(userRecord) {
-      var tempId = 'users/'+ userRecord.uid;
-      console.log("TempId: ", tempId);
-      console.log("Successfully created new user:", firstName, " ", lastName, "email:", email);
-      var newUserRef = admin.database().ref(tempId).set({
-        'email': email,
-        'firstName': firstName,
-        'password': password,
-        'lastName': lastName,
-        'projects': []
-      })
-      return response.status(200).json({"email":email, "password": password});
-      // return response.status(200).end();
+
+  var authUser = admin.auth().createUser({
+      email: email,
+      firstName: firstName,
+      password: password,
+      lastName: lastName,
+      projects: projects
     })
-    .catch(function(error) {
-      console.log("Error creating new user:", error);
-      return response.status(400).json(400);
-      // return 400;
-      // return response.status(400).json(400, 'Error ', error);   
-    });
+      .then(function(userRecord) {
+        var tempId = 'users/'+ userRecord.uid;
+        console.log("TempId: ", tempId);
+        console.log("Successfully created new user:", firstName, " ", lastName, "email:", email);
+        var newUserRef = admin.database().ref(tempId).set({
+          'email': email,
+          'firstName': firstName,
+          'password': password,
+          'lastName': lastName,
+          'projects': []
+        })
+        return response.status(200).json({"email":email, "password": password});
+        // return response.status(200).end();
+      })
+      .catch(function(error) {
+        console.log("Error creating new user:", error);
+        return response.status(400).json(400);
+        // return 400;
+        // return response.status(400).json(400, 'Error ', error);   
+      });
 });
 
 // LOGIN
@@ -81,62 +84,6 @@ exports.logout = functions.https.onRequest((request, response) => {
       return response.json();          
     }
   });
-})
-
-// UPDATE ACCOUNT SETTING
-exports.updateAccountSetting = functions.https.onRequest((request, response) =>{
-
-    const user = firebase.auth().currentUser;
-    const userId = user.uid;
-
-    // check for changed info
-    if (request.body.newPassword) {
-      newPassword = request.body.newPassword  
-    } else {
-      newPassword = user.password
-    }
-    if (request.body.newEmail) {
-      newEmail = request.body.newEmail  
-    } else {
-      newEmail = user.email
-    }
-    if (request.body.newFirstName) {
-      newFirstName = request.body.newFirstName 
-    } else {
-      newFirstName = user.firstNme
-    }
-    if (request.body.newLastName) {
-      newLastName = request.body.newLastName  
-    } else {
-      newLastName = user.lastName
-    }
-    const uid = user.uid;
-
-  admin.auth().updateUser(uid, {
-    email: newEmail,
-    password: newPassword,
-    firstName: newFirstName,
-    lastName: newLastName
-  })
-    .then(function(userRecord) {
-      console.log("updated user info: ", userRecord.toJSON());
-      response.status(200).end();
-      return response.json();
-    })
-    .catch(function(error){
-      console.log("failed to update user info");
-      response.status(400).end();
-      return response.json();
-    })
-
-    // Write to DB
-    const updateUserRef = aref.child(`/users/${userId}/`)
-    return updateUserRef.set({
-      'email': newEmail,
-      'firstName': newFirstName,
-      'password': newPassword,
-      'lastName': newLastName
-    })
 })
 
 // CREATEPROJECT
@@ -320,13 +267,13 @@ exports.getprojects = functions.https.onRequest((req, res) => {
   var projectref = fref.child('projects');
   var projarr = [];
 
-  // Make the promise object
+  // Make the promise object for query
   const projpromise = projectref.orderByChild('key').equalTo(uid).once('value');
-  // Make another promise for pushing
+  // Make another promise for pushing using nested promises
   const pushpromise = projpromise.then(snap => {
     // find the value
     var proj_item = snap.val();
-    console.log("item: ", snap.val());
+    // console.log("type: ", typeof proj_item ,"item: ", snap.val());
     projarr.push(proj_item);
     return proj_item;
   }).catch(reason => {
@@ -335,6 +282,8 @@ exports.getprojects = functions.https.onRequest((req, res) => {
   })
 
   pushpromise.then(snap => {
+    // console.log("typeof Array: ", typeof projarr);
+    // console.log("Arr contents: ", projarr);
     return res.json(projarr);
   }).catch(reason => {
     console.log(reason)
