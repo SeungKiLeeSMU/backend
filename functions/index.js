@@ -350,7 +350,7 @@ exports.getprojects = functions.https.onRequest((req, res) => {
     });
 });
 
-exports.getprojectbyid2 = functions.https.onRequest((req, res) => {
+exports.getprojectbyid = functions.https.onRequest((req, res) => {
   const pid = req.body.pid;
   // query for everything
   var rdeadline = "";
@@ -364,7 +364,7 @@ exports.getprojectbyid2 = functions.https.onRequest((req, res) => {
   var pqueryref = fref.child(`projects/${pid}/`).once("value");
   var squeryref = fref.child("subprojects").orderByChild("parentProect").equalTo(pid).once("value");
 
-  const projectinfo = pquery.then(function (snapshot) {
+  const projectinfo = pqueryref.then(function (snapshot) {
     rdeadline = snapshot.val().deadline;
     rprogress = snapshot.val().progress;
     rtitle = snapshot.val().title;
@@ -377,22 +377,25 @@ exports.getprojectbyid2 = functions.https.onRequest((req, res) => {
       "type": rtype
     }
 
+    console.log("pinfo: ", pinfo);
     return pinfo;
   })
 
   const subprojectinfo = squeryref.then(function (snapshot) {
-    console.log("Value: ", snapshot.val());
+
+    console.log("subproject: ", snapshot.val());
     rsubprojects.push(snapshot.val());
 
-    const spinfo = {
-      "deadline": pinfo.deadline,
-      "progress": pinfo.progress,
-      "title": pinfo.title,
-      "type": pinfo.type,
-      "subprojects": rsubprojects
-    }
-
-    return spinfo;
+    pqueryref.then(pinfo => {
+      const spinfo = {
+        "deadline": pinfo.deadline,
+        "progress": pinfo.progress,
+        "title": pinfo.title,
+        "type": pinfo.type,
+        "subprojects": rsubprojects
+      }
+      return spinfo;
+    })
   })
 
   return subprojectinfo.then(function (value) {
