@@ -242,6 +242,7 @@ exports.createSubproject = functions.https.onRequest((request, response) => {
 // CREATETASK
 exports.createTask = functions.https.onRequest((request, response) => {
   // create task tied to user
+  const globalkey = request.body.spid;
   const parentSubproject = request.body.spid;
   const deadline = request.body.deadline;
   const title = request.body.title;
@@ -255,7 +256,8 @@ exports.createTask = functions.https.onRequest((request, response) => {
     deadline,
     title,
     completed,
-    parentSubproject
+    parentSubproject,
+    globalkey
   };
 
   if (newTask) {
@@ -275,7 +277,8 @@ exports.createTask = functions.https.onRequest((request, response) => {
     deadline: deadline,
     title: title,
     completed: completed,
-    parentSubproject: parentSubproject
+    parentSubproject: parentSubproject,
+    globalkey: globalkey
   });
 
   // console.log("After push")
@@ -663,40 +666,17 @@ exports.gettasks = functions.https.onRequest((req, res) => {
 // GETGLOBALTASKS
 exports.getglobaltasks = functions.https.onRequest((req, res) => {
   const globaluser = req.body.uid;
-  const spid = req.body.spid;
-  var projectref = fref.child("tasks");
-  var taskarr = [];
+  var globalref = fref.child('tasks');
 
-  // Make the promise object for query
-  const taskpromise = projectref
-    .orderByChild("parentSubproject")
-    .equalTo(spid)
-    .once("value");
-  // Another Promise for pushing to array
-  const pushpromise = taskpromise
-    .then(snap => {
-      var task_item = snap.val();
+  const globalpromise = globalref.orderByChild('globalkey').once('value').then(function (snapshot) {
+    const gt = snapshot.val();
+    console.log("gt", gt);
+    return gt;
+  });
 
-      // push to array
-      taskarr.push(task_item);
-      return task_item;
-    })
-    .catch(reason => {
-      console.log(reason);
-      return res.json(400);
-    });
-
-  // Respond with array
-  return pushpromise
-    .then(task_item => {
-      var newArr = Object.assign({}, taskarr);
-      console.log(newArr);
-      return res.json(200, newArr);
-    })
-    .catch(reason => {
-      console.log(reason);
-      return res.json(400);
-    });
+  return globalpromise.then(gt => {
+    return res.json(200, gt);
+  });
 });
 
 // UPDATESETTING
