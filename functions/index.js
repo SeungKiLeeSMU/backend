@@ -180,9 +180,12 @@ exports.createProject = functions.https.onRequest((request, response) => {
   // retrieve random string and push it under user.
   var projectId = pushRef.key;
   const userRef = aref.child(`/users/${userId}/projects/`);
-  return pushRef, userRef.push({
-    projectId
-  });
+  return (
+    pushRef,
+    userRef.push({
+      projectId
+    })
+  );
 });
 
 // CREATESUBPROJECT
@@ -209,30 +212,31 @@ exports.createSubproject = functions.https.onRequest((request, response) => {
 
   if (newSubproject) {
     console.log("New Subproject ", title, " is created");
-    response.status(200).end();
+
+    // write to db -> add the project_id to the list in users table
+    const subProjRef = aref.child(`/subprojects/`);
+    var pushRef = subProjRef.push({
+      deadline: deadline,
+      progress: progress,
+      task: task,
+      completedTasks: completedTasks,
+      title: title,
+      wordcount: word_count,
+      parentProect: parentProject
+    });
+
+    // retrieve random string and push it under user.
+    var spid = pushRef.key;
+    const projRef = aref.child(`/projects/${projectId}/subprojects/`);
+    projRef.push({
+      spid
+    });
+
+    return response.json(200, spid);
   } else {
     console.log("error");
-    response.status(400).end();
+    return response.json(400);
   }
-
-  // write to db -> add the project_id to the list in users table
-  const subProjRef = aref.child(`/subprojects/`);
-  var pushRef = subProjRef.push({
-    deadline: deadline,
-    progress: progress,
-    task: task,
-    completedTasks: completedTasks,
-    title: title,
-    wordcount: word_count,
-    parentProect: parentProject
-  });
-
-  // retrieve random string and push it under user.
-  var subProjectId = pushRef.key;
-  const projRef = aref.child(`/projects/${projectId}/subprojects/`);
-  return pushRef, projRef.push({
-    subProjectId
-  });
 });
 
 // CREATETASK
@@ -277,11 +281,14 @@ exports.createTask = functions.https.onRequest((request, response) => {
   // console.log("After push")
   // retrieve random string and push it under user.
   var taskId = pushRef.key;
-  const subprojRef = aref.child(`/subprojects/${subprojId}/tasks/`);
+  const subprojRef = aref.child(`/subprojects/${parentSubproject}/tasks/`);
   // console.log("Before Return")
-  return pushRef, subprojRef.push({
-    taskId
-  });
+  return (
+    pushRef,
+    subprojRef.push({
+      taskId
+    })
+  );
 });
 
 // GETVIDEO
@@ -350,7 +357,7 @@ exports.getprojects = functions.https.onRequest((req, res) => {
     });
 });
 
-exports.getprojectbyid = functions.https.onRequest((req, res) => {
+exports.getprojectbyid2 = functions.https.onRequest((req, res) => {
   const pid = req.body.pid;
   // query for everything
   var rdeadline = "";
@@ -358,57 +365,246 @@ exports.getprojectbyid = functions.https.onRequest((req, res) => {
   var rtitle = "";
   var rtype = 0;
   var rsubprojects = [];
+  // var rsubprojects;
+  var spid = "";
+  var ppid = "";
+  var stitle = "";
+  var sdeadline = "";
+  var sprogress = 0;
+  var swordCount = 0;
 
 
   // access the projects node with pid
   var pqueryref = fref.child(`projects/${pid}/`).once("value");
-  var squeryref = fref.child("subprojects").orderByChild("parentProect").equalTo(pid).once("value");
+  var squeryref = fref
+    .child("subprojects")
+    .orderByChild("parentProect")
+    .equalTo(pid)
+    .once("value");
 
   const projectinfo = pqueryref.then(function (snapshot) {
     rdeadline = snapshot.val().deadline;
-    rprogress = snapshot.val().progress;
+    rprogress = Number(snapshot.val().progress);
     rtitle = snapshot.val().title;
-    rtype = snapshot.val().type;
+    rtype = Number(snapshot.val().type);
+    console.log("Type Type: ", typeof rtype);
 
     const pinfo = {
-      "deadline": rdeadline,
-      "progress": rprogress,
-      "title": rtitle,
-      "type": rtype
-    }
+      deadline: rdeadline,
+      progress: rprogress,
+      title: rtitle,
+      type: rtype
+    };
 
-    console.log("pinfo: ", pinfo);
+    console.log("pinfo type: ", typeof pinfo);
     return pinfo;
-  })
+  });
 
+  var countfor = 0;
   const subprojectinfo = squeryref.then(function (snapshot) {
+    var finishforeach = new Promise((resolve, reject) => {
+      snapshot.forEach(function (child) {
+        spid = child.key;
+        ppid = child.val().parentProect;
+        stitle = child.val().title;
+        sdeadline = child.val().deadline;
+        sprogress = child.val().progess;
+        swordCount = child.val().wordcount;
+        // console.log("subproject key: ", child.key);
+        // console.log("subproject deadline: ", child.val().deadline);
+        // console.log("subproject progress: ", child.val().progress);
+        // console.log("subproject title: ", child.val().title);
+        // console.log("subproject wordcount: ", child.val().wordcount);
+        // console.log("subproject parent: ", child.val().parentProect);
 
-    console.log("subproject: ", snapshot.val());
-    rsubprojects.push(snapshot.val());
+        // Make a new objkect
+        if (snapshot.val() === null) {
+          rsubprojects.push([]);
+        }
+        // rsubprojects = snapshot.val();
+        rsubprojects
+          .push({
+            "spid": spid,
+            "pid": ppid,
+            "title": stitle,
+            "deadline": sdeadline,
+            "progress": sprogress,
+            "wordCount": swordCount
+          });
+        countfor += 1;
 
-    pqueryref.then(pinfo => {
-      const spinfo = {
-        "deadline": pinfo.deadline,
-        "progress": pinfo.progress,
-        "title": pinfo.title,
-        "type": pinfo.type,
-        "subprojects": rsubprojects
-      }
-      return spinfo;
+        if (countfor === snapshot.numChildren()) resolve();
+      })
     })
-  })
+    finishforeach.then(() => {
+      pqueryref.then(pinfo => {
+        const spinfo = {
+          deadline: pinfo.deadline,
+          progress: pinfo.progress,
+          title: pinfo.title,
+          type: pinfo.type,
+          subprojects: rsubprojects
+        };
+        console.log("Spinfo: ", typeof spinfo);
+        return spinfo;
+      });
+    })
+  });
 
   return subprojectinfo.then(function (value) {
+    const fullobj = {
+      deadline: rdeadline,
+      progress: rprogress,
+      title: rtitle,
+      type: rtype,
+      subprojects: rsubprojects
+    };
+    // const sobj =
+    console.log("Before assign: ", typeof fullobj);
+    // const newArr = Array() //Object.assign({}, fullobj);
 
+    // const strobj = JSON.stringify(fullobj);
+    // newArr.push(fullobj);
     // make return object of project with all the sub project info + project info
-    return res.json(200, {
-      "deadline": rdeadline,
-      "progress": rprogress,
-      "title": rtitle,
-      "type": rtype,
-      "subprojects": rsubprojects
-    });
-  })
+    // return res.json(200, {
+    //   "deadline": rdeadline,
+    //   "progress": rprogress,
+    //   "title": rtitle,
+    //   "type": rtype,
+    //   "subprojects": rsubprojects
+    // });
+
+    // console.log("After assign: ", typeof newArr);
+    // console.log("newArr", newArr);
+
+    return res.json(200, fullobj);
+  });
+});
+
+exports.getsubprojectbyid2 = functions.https.onRequest((req, res) => {
+  const spid = req.body.spid;
+  var ppid = "";
+  var sdeadline = "";
+  var sprogress = 0;
+  var stitle = "";
+  var stype = 0;
+  var swordcount = 0;
+  var tasks = [];
+  var completedTaks = [];
+
+  var tid = "";
+  var ttitle = "";
+  var tdeadline = "";
+  var completed = false;
+
+
+  // access the projects node with pid
+  var spqueryref = fref.child(`subprojects/${spid}/`).once("value");
+  var tqueryref = fref
+    .child("tasks")
+    .orderByChild("parentSubproject")
+    .equalTo(spid)
+    .once("value");
+
+  const subprojectinfo = spqueryref.then(function (snapshot) {
+    ppid = snapshot.val().parentProect;
+    sdeadline = snapshot.val().deadline;
+    sprogress = Number(snapshot.val().progress);
+    stitle = snapshot.val().title;
+    stype = Number(snapshot.val().type);
+    swordcount = Number(snapshot.val().wordcount);
+
+    console.log("Type Type: ", typeof stype);
+
+    const pinfo = {
+      deadline: sdeadline,
+      progress: sprogress,
+      title: stitle,
+      type: stype,
+      wordCount: swordcount
+    };
+
+    console.log("pinfo type: ", typeof pinfo);
+    return pinfo;
+  });
+
+  var countfor = 0;
+  const taskinfo = tqueryref.then(function (snapshot) {
+    var finishforeach = new Promise((resolve, reject) => {
+      snapshot.forEach(function (child) {
+        tid = child.key;
+        // ppid = child.val().parentProect;
+        ttitle = child.val().title;
+        tdeadline = child.val().deadline;
+        completed = child.val().completed;
+        console.log("task key: ", child.key);
+        console.log("task deadline: ", child.val().deadline);
+        // console.log("subproject progress: ", child.val().progress);
+        console.log("task title: ", child.val().title);
+        console.log("task completed: ", child.val().completed);
+        // console.log("subproject parent: ", child.val().parentProect);
+
+        // Make a new objkect
+        if (snapshot.val() === null) {
+          tasks.push([]);
+        }
+        // rsubprojects = snapshot.val();
+        tasks
+          .push({
+            "tid": tid,
+            "title": ttitle,
+            "deadline": tdeadline,
+            "completed": completed
+          });
+        countfor += 1;
+
+        if (countfor === snapshot.numChildren()) resolve();
+      })
+    })
+    finishforeach.then(() => {
+      spqueryref.then(pinfo => {
+        const spinfo = {
+          deadline: pinfo.deadline,
+          progress: pinfo.progress,
+          title: pinfo.title,
+          type: pinfo.type,
+          wordCount: pinfo.wordCount,
+          tasks: tasks
+        };
+        console.log("Spinfo: ", typeof spinfo);
+        return spinfo;
+      });
+    })
+  });
+
+  return taskinfo.then(function (value) {
+    const fullobj = {
+      deadline: sdeadline,
+      progress: sprogress,
+      title: stitle,
+      wordCount: swordcount,
+      tasks: tasks
+    };
+    // const sobj =
+    console.log("Before assign: ", typeof fullobj);
+    // const newArr = Array() //Object.assign({}, fullobj);
+
+    // const strobj = JSON.stringify(fullobj);
+    // newArr.push(fullobj);
+    // make return object of project with all the sub project info + project info
+    // return res.json(200, {
+    //   "deadline": rdeadline,
+    //   "progress": rprogress,
+    //   "title": rtitle,
+    //   "type": rtype,
+    //   "subprojects": rsubprojects
+    // });
+
+    // console.log("After assign: ", typeof newArr);
+    // console.log("newArr", newArr);
+
+    return res.json(200, fullobj);
+  });
 });
 
 exports.getsubprojectbyid = functions.https.onRequest((req, res) => {
@@ -548,3 +744,33 @@ exports.updateSetting = functions.https.onRequest((req, res) => {
       return res.json(400);
     });
 });
+
+// Complete Task
+exports.updateTask = functions.https.onRequest((req, res) => {
+  // given a tid, change its status to completed
+  const tid = req.body.tid;
+  const taskref = fref.child(`tasks/${tid}`).once("value", function (snapshot) {
+    var findtask = snapshot.val().completed;
+    console.log("Task to Update: ", findtask);
+    return findtask;
+  });
+
+  // const completeTask = taskref.then(findtask => {
+  //   var taskstatus = findtask.completed;
+  //   console.log("Status to Update: ", taskstatus);
+  //   return taskstatus;
+  // })
+
+  return taskref.then(findtask => {
+
+    // Put the change to task
+    const setref = fref.child(`tasks/${tid}/completed`);
+    setref.set(true);
+    setref.once("value", function (snapshot) {
+      console.log(snapshot.val());
+    });
+    return res.json(200, setref);
+  })
+})
+
+// Update Progress
